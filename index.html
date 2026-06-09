@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LEVATRES | Ascend Further</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;700&display=swap" rel="stylesheet">
     <style>
         body {
             display: flex;
@@ -12,31 +13,190 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #101824; 
-            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(-45deg, #0b111a, #101824, #1a2533, #0f1621);
+            background-size: 400% 400%;
+            animation: breatheBackground 15s ease infinite;
+            font-family: 'Montserrat', Arial, sans-serif;
             text-align: center;
+            overflow: hidden; 
+            position: relative;
         }
+
+        #lightCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; 
+            z-index: 2; 
+            mix-blend-mode: color-dodge; 
+        }
+
+        .content {
+            z-index: 3; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
         h1 {
-            font-size: 5rem;
-            color: #D4AF37; 
-            letter-spacing: 0.05em;
+            font-size: clamp(3rem, 10vw, 6rem); 
             margin: 0;
             font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.1em;
+            
+            background: linear-gradient(
+                to right, 
+                #BF953F, 
+                #FCF6BA, 
+                #B38728, 
+                #FBF5B7, 
+                #AA771C
+            );
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
         }
+
         p.slogan {
-            font-size: 1.5rem;
+            font-size: clamp(1rem, 3vw, 1.5rem);
             color: #D4AF37;
-            letter-spacing: 0.4em; /* Wide spacing to match the apparel back */
+            letter-spacing: 0.6em; 
             margin-top: 15px;
-            margin-right: -0.4em; /* Offsets the final letter's spacing for perfect centering */
+            margin-right: -0.6em; 
             font-weight: 300;
             text-transform: uppercase;
+            text-shadow: 0px 0px 15px rgba(212, 175, 55, 0.4);
+        }
+
+        @keyframes breatheBackground {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
     </style>
 </head>
 <body>
-    <h1>LEVATRES</h1>
-    <p class="slogan">Ascend Further</p>
+    
+    <canvas id="lightCanvas"></canvas>
+
+    <div class="content">
+        <h1>LEVATRES</h1>
+        <p class="slogan">Ascend Further</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('lightCanvas');
+        const ctx = canvas.getContext('2d');
+        let pulses = [];
+        
+        let mouse = { 
+            x: window.innerWidth / 2, 
+            y: window.innerHeight / 2 
+        };
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            mouse.x = canvas.width / 2;
+            mouse.y = canvas.height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize(); 
+
+        window.addEventListener('mousemove', function(e) {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        class Pulse {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                
+                // SIZE LOGIC
+                this.size = 250; // Starts a bit bigger
+                this.maxSize = 750; // Size Cap
+                this.growthSpeed = 15; // Expands faster initially
+                
+                // INTENSITY (ALPHA) LOGIC
+                this.alpha = 0; // Starts completely invisible
+                this.maxAlpha = 0.45; // The Intensity Cap (stops it from blinding you)
+                this.fadeInSpeed = 0.05; // Flares up very quickly
+                this.fadeOutSpeed = 0.006; // Fades out slowly
+                this.hasPeaked = false; // Tracks if it hit the cap yet
+            }
+
+            update() {
+                // Grow the size, but stop growing if it hits the maxSize cap
+                if (this.size < this.maxSize) {
+                    this.size += this.growthSpeed;
+                }
+
+                // Grow intensity fast, cap it, then fade out slowly
+                if (!this.hasPeaked) {
+                    this.alpha += this.fadeInSpeed;
+                    if (this.alpha >= this.maxAlpha) {
+                        this.alpha = this.maxAlpha; // Hard cap
+                        this.hasPeaked = true; // Trigger the fade out phase
+                    }
+                } else {
+                    this.alpha -= this.fadeOutSpeed;
+                }
+            }
+
+            draw() {
+                if (this.alpha <= 0) return; // Don't draw if invisible
+
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                
+                ctx.beginPath();
+                let gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+                
+                gradient.addColorStop(0, 'rgba(212, 175, 55, 0.7)'); // Rich gold core
+                gradient.addColorStop(0.3, 'rgba(212, 175, 55, 0.3)'); // Smooth mid-glow
+                gradient.addColorStop(1, 'rgba(212, 175, 55, 0)'); // Clean edge fade
+                
+                ctx.fillStyle = gradient;
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createPulse(x, y) {
+            pulses.push(new Pulse(x, y));
+        }
+
+        let frame = 0;
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Drop a new pulse every 8 frames
+            if (frame % 8 === 0) {
+                createPulse(mouse.x, mouse.y);
+            }
+            frame++;
+            
+            for (let i = 0; i < pulses.length; i++) {
+                pulses[i].update();
+                pulses[i].draw();
+                
+                // Delete the pulse only after it has peaked and faded away to 0
+                if (pulses[i].hasPeaked && pulses[i].alpha <= 0) {
+                    pulses.splice(i, 1);
+                    i--; 
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        animate(); 
+    </script>
 </body>
 </html>
